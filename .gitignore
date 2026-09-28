@@ -1,0 +1,21 @@
+# Saved model (~260 MB, over GitHub's 100 MB file limit)
+results/distilbert_fakenews/
+
+# Datasets (downloaded by the notebook)
+True.csv
+Fake.csv
+Constraint_*.csv
+english_test_with_labels.csv
+data/
+
+# Python / Jupyter
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+venv/
+.env
+
+# OS
+.DS_Store
+Thumbs.db
