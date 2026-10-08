@@ -1,140 +1,126 @@
-# Explainable, Uncertainty-Aware Fake News Detection
+# Explainable Fake News Detection with DistilBERT and Uncertainty
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/SI2456/explainable-fake-news-detection/blob/main/Fake_News_Detection_XAI_Uncertainty.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/SI2456/Explainable-Fake-News-Detection/blob/main/Fake_News_Detection_XAI_Uncertainty.ipynb)
 
-A fake news classifier built on fine-tuned **DistilBERT**. It does more than output FAKE or REAL:
+A fake news classifier built on fine-tuned **DistilBERT** that does more than say FAKE or REAL:
 
-- **Confidence you can trust.** It uses Monte Carlo Dropout and temperature scaling, and checks calibration with ECE.
-- **An `UNCERTAIN` option.** Low-confidence predictions are sent for human review instead of being forced into FAKE or REAL.
-- **Explanations.** LIME shows which words drove each prediction, and a deletion test checks that those explanations are faithful.
-- **An honest generalization test.** The model is trained on political news (ISOT) and tested on COVID-19 health misinformation.
+- **It says when it is unsure.** Monte Carlo Dropout gives a confidence score, and low-confidence articles are labelled `UNCERTAIN` for a human to check.
+- **It explains its answer.** LIME shows which words pushed each prediction.
+- **It is tested honestly.** It is trained on political news and tested on COVID-19 health posts it has never seen.
 
 > Machine Learning subject project, B.Tech Information Technology, BVM Engineering College (GTU).
 
 ![Pipeline](docs/pipeline.png)
 
----
+## Why the data needs cleaning
 
-## Why this project is different
+The popular Kaggle *Fake and Real News* dataset contains patterns that reveal the **source** of each article, not whether it is true:
 
-The popular Kaggle *Fake and Real News* dataset has a **leakage problem**. The raw text reveals the *source* of each article:
-
-| Pattern in raw text | % of REAL | % of FAKE |
+| Pattern in the text | % of REAL | % of FAKE |
 |---|---|---|
 | `(Reuters)` dateline | 99.2 | 0.0 |
-| "Featured image" credit | 0.0 | 34.8 |
+| "Featured image" / "image via" credit | 0.0 | 35.4 |
 | "Getty Images" | 0.0 | 16.8 |
-| URL / pic.twitter link | 0.0 | 23.5 |
+| Web link | 0.2 | 23.7 |
 | Twitter @handle | 1.3 | 26.1 |
 | Curly apostrophe `’` | 47.4 | 0.0 |
 
-Because of this, even TF-IDF + Logistic Regression scores about 99% without learning anything about misinformation. This project removes those artifacts and de-duplicates the data. It then uses LIME to *show* the shortcut and a cross-domain test to measure what the model really learned.
+A model could score about 99% just by spotting these. The notebook removes them all (every row drops to 0% after cleaning) and removes duplicate articles: 44,898 → 38,244 articles.
 
 ## What's inside
 
-| Component | Method |
+| Step | Method |
 |---|---|
-| Baseline | TF-IDF (1–2 grams) + Logistic Regression, on raw vs cleaned text |
-| Model | `distilbert-base-uncased`, fine-tuned for 2 epochs, lr 2e-5, max 256 tokens, mixed precision |
-| Uncertainty | Softmax vs Temperature Scaling vs MC Dropout (20 passes). Reports predictive entropy and mutual information (BALD) |
-| Calibration | Expected Calibration Error (ECE), NLL, Brier score, reliability diagrams |
-| Selective prediction | Risk–coverage curve, AURC, error-detection AUROC, `UNCERTAIN` flag (threshold tuned on the validation set) |
-| Explainability | LIME word importance, aggregated top words, deletion (faithfulness) test |
-| Domain shift | ISOT (politics, 2016–17) → COVID-19 posts (health, 2020): accuracy drop, ECE, OOD-detection AUROC |
+| Baseline | TF-IDF (1–2 word phrases) + Logistic Regression |
+| Model | `distilbert-base-uncased`, fine-tuned for 2 epochs, lr 2e-5, first 256 tokens |
+| Uncertainty | Monte Carlo Dropout (10 passes); the least confident 5% are flagged `UNCERTAIN` |
+| Metrics | Accuracy, Precision, Recall, F1, ROC-AUC, Expected Calibration Error (ECE) |
+| Confidence check | Accuracy of confident vs uncertain predictions, reliability diagram, error-detection AUROC |
+| Explainability | LIME word importance |
+| Domain shift | Train on ISOT political news (2016–17), test on COVID-19 posts (2020) |
 
 ## Datasets
 
 | Dataset | Use | Size |
 |---|---|---|
-| [Fake and Real News Dataset (ISOT)](https://www.kaggle.com/datasets/clmentbisaillon/fake-and-real-news-dataset) | train / validation / in-domain test | 44,898 articles → 38,243 after cleaning |
+| [Fake and Real News Dataset (ISOT)](https://www.kaggle.com/datasets/clmentbisaillon/fake-and-real-news-dataset) | train / validation / test | 44,898 articles |
 | [COVID-19 Fake News Dataset (Constraint@AAAI 2021)](https://github.com/parthpatwa/covid19-fake-news-detection) | cross-domain test | 2,140 posts |
 
-The notebook downloads both automatically. If a link fails, upload `True.csv`, `Fake.csv` and `english_test_with_labels.csv` to the Colab file panel. Local files are used first.
+The notebook downloads both automatically. For a quick run it uses 10,000 training articles; set `train_size=None` in the settings cell to use all of them.
 
 ## How to run
 
-1. Click the **Open in Colab** badge above, or upload the notebook to [Colab](https://colab.research.google.com).
-2. Go to `Runtime → Change runtime type → T4 GPU`.
-3. Choose `Runtime → Run all`. A full run takes about 40–60 minutes. For a 10-minute test, set `quick_run=True` in the settings cell first.
-4. All tables and figures are saved in `results/`. Download that folder before the Colab session ends.
-
-To run locally instead:
+**On your PC** (needs an NVIDIA GPU; about 15–20 minutes on an RTX 3050):
 
 ```bash
+py -3.12 -m venv .venv
+.venv\Scripts\activate
+pip install torch --index-url https://download.pytorch.org/whl/cu126
 pip install -r requirements.txt
 jupyter notebook Fake_News_Detection_XAI_Uncertainty.ipynb
 ```
 
-A CUDA GPU is strongly recommended.
+Then choose **Run → Run All Cells**. If you see "CUDA out of memory", set `batch_size = 8` in the settings cell.
+
+**On Google Colab:** click the badge above, choose `Runtime → Change runtime type → T4 GPU`, then `Runtime → Run all`.
+
+All tables and figures are saved in `results/`.
 
 ## Results
 
-> Fill this table in from `results/all_results.xlsx` after running the notebook.
+> Fill this in from `results/metrics.csv` and `results/uncertainty.csv` after running the notebook.
 
-| Model | In-domain Acc | In-domain F1 | ECE | COVID-19 Acc | COVID-19 F1 |
+| Model | ISOT Acc | ISOT F1 | ISOT ECE | COVID-19 Acc | COVID-19 F1 |
 |---|---|---|---|---|---|
-| TF-IDF + LR (raw text) | | | – | – | – |
-| TF-IDF + LR (clean text) | | | – | | |
-| DistilBERT + Softmax | | | | | |
-| DistilBERT + Temperature scaling | | | | | |
+| TF-IDF + LR | | | | | |
+| DistilBERT | | | | | |
 | DistilBERT + MC Dropout | | | | | |
 
 | UNCERTAIN flag | ISOT test | COVID-19 |
 |---|---|---|
 | % flagged | | |
 | Accuracy on confident predictions | | |
-| % of all errors caught by the flag | | |
-
-<!-- Add figures after running, e.g.:
-![Reliability diagrams](results/figures/reliability_in_domain.png)
-![Risk-coverage](results/figures/risk_coverage_in_domain.png)
-![Domain shift](results/figures/domain_shift_uncertainty.png)
--->
+| Accuracy on UNCERTAIN predictions | | |
+| % of mistakes flagged | | |
 
 ## Try it on your own text
 
-After the notebook has run, use the `analyse()` function:
+After the notebook has run:
 
 ```python
-analyse("BREAKING: Doctors are FURIOUS after this one weird trick cures diabetes overnight!")
-# Verdict   : FAKE / REAL / UNCERTAIN — needs human review
-# P(fake)   : ...   (MC Dropout mean of 20 passes)
-# Confidence: ...   threshold tau = ...
-# Key words : ...
+check_news("BREAKING: Doctors are FURIOUS after this one weird trick cures diabetes overnight!")
+# Verdict    : FAKE / REAL / UNCERTAIN (send to a human fact-checker)
+# P(fake)    : ...  (± ... across 10 MC Dropout passes)
+# Confidence : ...
+# Key words  : ...
 ```
 
 ## Project structure
 
 ```
-explainable-fake-news-detection/
-├── Fake_News_Detection_XAI_Uncertainty.ipynb   # full pipeline, runs end to end
+├── Fake_News_Detection_XAI_Uncertainty.ipynb   # the whole project, runs top to bottom
 ├── requirements.txt
-├── docs/
-│   └── pipeline.png
-└── results/                                     # created by the notebook
-    ├── figures/                                 # reliability, risk-coverage, LIME, domain shift plots
-    ├── *.csv                                    # every results table
-    ├── all_results.xlsx                         # all tables in one workbook
-    └── distilbert_fakenews/                     # saved model (git-ignored, ~260 MB)
+├── docs/pipeline.png
+└── results/                                    # created by the notebook
+    ├── metrics.csv, uncertainty.csv, domain_shift.csv, giveaways_before_after.csv
+    └── figures/                                # confusion matrices, reliability diagrams, LIME, domain shift
 ```
 
 ## Limitations
 
-- Every REAL article comes from Reuters, so the model partly learns *source style*, even after cleaning.
+- Every REAL article comes from Reuters, so the model partly learns news-agency *style*, even after cleaning.
 - The model judges how text is written. It does not check facts.
 - Only the first 256 tokens of each article are used.
-- MC Dropout is an approximation. It can still be over-confident on very different data.
+- MC Dropout can still be over-confident on very different data.
 
 ## References
 
 1. Sanh et al. (2019). [DistilBERT, a distilled version of BERT](https://arxiv.org/abs/1910.01108)
 2. Gal & Ghahramani (2016). [Dropout as a Bayesian Approximation](https://arxiv.org/abs/1506.02142)
-3. Guo et al. (2017). [On Calibration of Modern Neural Networks](https://arxiv.org/abs/1706.04599)
-4. Geifman & El-Yaniv (2017). [Selective Classification for Deep Neural Networks](https://arxiv.org/abs/1705.08500)
-5. Ribeiro et al. (2016). ["Why Should I Trust You?": Explaining the Predictions of Any Classifier](https://arxiv.org/abs/1602.04938)
-6. Geirhos et al. (2020). [Shortcut Learning in Deep Neural Networks](https://arxiv.org/abs/2004.07780)
-7. Patwa et al. (2021). [Fighting an Infodemic: COVID-19 Fake News Dataset](https://arxiv.org/abs/2011.03327)
-8. Ahmed, Traore & Saad (2017). Detection of Online Fake News Using N-Gram Analysis and Machine Learning Techniques. ISDDC 2017.
+3. Ribeiro et al. (2016). ["Why Should I Trust You?": Explaining the Predictions of Any Classifier](https://arxiv.org/abs/1602.04938)
+4. Guo et al. (2017). [On Calibration of Modern Neural Networks](https://arxiv.org/abs/1706.04599)
+5. Patwa et al. (2021). [Fighting an Infodemic: COVID-19 Fake News Dataset](https://arxiv.org/abs/2011.03327)
+6. Ahmed, Traore & Saad (2017). Detection of Online Fake News Using N-Gram Analysis and Machine Learning Techniques. ISDDC 2017.
 
 ## Author
 
