@@ -68,20 +68,34 @@ All tables and figures are saved in `results/`.
 
 ## Results
 
-> Fill this in from `results/metrics.csv` and `results/uncertainty.csv` after running the notebook.
+Run on an RTX 3050 Ti laptop GPU (10,000 training articles, 3,000 test articles, 21 minutes in total).
 
 | Model | ISOT Acc | ISOT F1 | ISOT ECE | COVID-19 Acc | COVID-19 F1 |
 |---|---|---|---|---|---|
-| TF-IDF + LR | | | | | |
-| DistilBERT | | | | | |
-| DistilBERT + MC Dropout | | | | | |
+| TF-IDF + LR | 98.03% | 0.978 | 0.051 | 48.88% | 0.587 |
+| DistilBERT | 99.10% | 0.990 | 0.008 | 41.45% | 0.549 |
+| DistilBERT + MC Dropout | **99.13%** | **0.990** | **0.006** | 41.96% | 0.564 |
 
-| UNCERTAIN flag | ISOT test | COVID-19 |
+| UNCERTAIN flag (MC Dropout) | ISOT test | COVID-19 |
 |---|---|---|
-| % flagged | | |
-| Accuracy on confident predictions | | |
-| Accuracy on UNCERTAIN predictions | | |
-| % of mistakes flagged | | |
+| % flagged UNCERTAIN | 5.0% | **65.8%** |
+| Accuracy on confident predictions | **99.96%** | 39.8% |
+| Accuracy on UNCERTAIN predictions | 83.3% | 43.1% |
+| % of mistakes flagged | **96.2%** | 64.5% |
+| Error-detection AUROC | **0.992** | 0.476 |
+
+**What this shows**
+
+1. **DistilBERT beats the baseline in-domain**: 99.1% vs 98.0% accuracy, and its confidence is far more trustworthy (ECE 0.006 vs 0.051).
+2. **The UNCERTAIN flag works in-domain.** Flagging only 5% of articles catches **96% of all mistakes**, and the remaining confident predictions are 99.96% correct.
+3. **Domain shift is severe.** On COVID-19 posts every model drops to *below* 50% accuracy. DistilBERT calls 85.5% of posts FAKE (true share: 47.7%) because short social-media posts look like the informal "fake" style it learned.
+4. **The model notices it is on unfamiliar ground.** The UNCERTAIN flag fires on 65.8% of COVID-19 posts compared with 5% in-domain, so in a real system most of these would go to a human. But *within* COVID-19 its confidence no longer separates right from wrong answers (AUROC 0.48).
+5. **LIME shows the model learned style.** Words like "said", "Tuesday" and "agency" push towards REAL (Reuters wire style), while "BREAKING", "trick" and "weird" push towards FAKE.
+
+| | |
+|---|---|
+| ![Confidence vs accuracy](results/figures/confidence_vs_accuracy.png) | ![Domain shift](results/figures/domain_shift.png) |
+| ![LIME real](results/figures/lime_confident_real.png) | ![LIME fake](results/figures/lime_confident_fake.png) |
 
 ## Try it on your own text
 
